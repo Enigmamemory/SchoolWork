@@ -1,0 +1,109 @@
+#include "cv.h"
+#include "spinlock.c"
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <signal.h>
+#include <unistd.h>
+
+sigset_t mask,oldmask;
+struct sigaction act;
+volatile sig_atomic_t usr_interrupt = 0;
+
+void sigusrhandler() {
+  usr_interrupt = 1;
+}
+
+void cv_init(struct cv *cv){
+
+  //initialize cv variables
+  spin_unlock(&cv->cvmutex);
+  cv->numsleep = 0;
+  cv->call_mutex = NULL;
+
+  //redirect SIGUSR1 to handler
+  act.sa_handler = sigusrhandler;
+  sigaction(SIGUSR1,&act,NULL);
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGUSR1);
+  
+}
+
+void cv_wait(struct cv *cv, struct spinlock *mutex){
+
+  /*Critical Region Here*/
+  spin_lock(&cv->cvmutex);
+  usr_interrupt = 0;
+  cv->call_mutex = mutex;
+
+  //Grab pid of caller and put in sleep array
+  cv->sleepers[cv->numsleep] = getpid();
+  cv->numsleep++;
+  if (cv->numsleep == CV_MAXPROC) {
+    fprintf(stderr, "More than 64 processes\n");
+    exit(1);
+  }
+
+  //sigsuspend and caller mutex work
+  sigprocmask(SIG_BLOCK, &mask, &oldmask);
+  spin_unlock(mutex);
+  spin_unlock(&cv->cvmutex);
+  /*End of Critical Region*/
+
+  while(!usr_interrupt)
+    sigsuspend(&oldmask);
+  spin_lock(mutex);
+  sigprocmask(SIG_UNBLOCK, &mask, NULL);
+
+}
+
+int cv_broadcast(struct cv *cv){
+
+  /*Critical Region Here*/
+  spin_lock(&cv->cvmutex);
+  int waking;
+  if ((waking = cv->numsleep) == 0) {
+    spin_unlock(&cv->cvmutex);
+    return 0;
+  } //numsleep == 0 means nothing to broadcast
+  
+  do{ //releasing all entries in pid array
+    cv->numsleep--;
+    kill(cv->sleepers[cv->numsleep],SIGUSR1);
+  }while(cv->numsleep >= 0);
+  cv->numsleep = 0;
+  spin_unlock(&cv->cvmutex);
+  /*End of Critical Region*/
+
+  return waking;
+  
+}
+
+int cv_signal(struct cv *cv){
+
+  /*Critical Region Here*/
+  spin_lock(&cv->cvmutex);
+  if(cv->numsleep == 0){
+    spin_unlock(&cv->cvmutex);
+    return 0;
+  } //again, nothing to signal if numsleep == 0
+
+  cv->numsleep--;
+  while(kill(cv->sleepers[cv->numsleep],SIGUSR1) < 0)
+    cv->numsleep--;
+  spin_unlock(&cv->cvmutex);
+  /*End of Critical Region*/
+
+  return 0;
+  
+}
+
+/*
+int main() {
+  return 0;
+}
+*/

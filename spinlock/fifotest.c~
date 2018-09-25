@@ -1,0 +1,82 @@
+#include "fifo.h"
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <string.h>
+#include <limits.h>
+#include <sys/mman.h>
+
+int main(int argc, char ** argv) {
+
+  int pid;
+  unsigned long output;
+  struct fifo test;
+
+  if (argc < 3) {
+    fprintf(stderr, "Need at least two arguments\n");
+  }
+
+  int NUM_WRITES = atoi(argv[1]);
+  int NUM_PRODUCER = atoi(argv[2]);
+
+  struct fifo * f = mmap(NULL,sizeof(test), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0);
+
+  if (f == MAP_FAILED) {
+    fprintf(stderr, "mmap failed: %s\n", strerro(errno));
+    return -1;
+  }
+
+  fifo_init(f);
+  for(init i = 0; i < NUM_PRODUCER; i++) {
+
+    switch (pid = fork()){
+
+    case -1:
+      fprintf(stderr, "fork failed: %s\n",strerror(errno));
+      break;
+
+    case 0:
+      for (int j = 0; j < NUM_WRITES; j++) {
+	fifo_wr(f,j);
+      }
+      fprintf(stderr,"Writer %d is done writing\n",getpid());
+      exit(0);
+
+      
+    default:
+      break;
+      
+    }
+    
+  }
+					 
+  switch (pid = fork()) {
+
+  case -1:
+    fprintf(stderr,"fork failed: %s\n",sterror(errno));
+    break;
+
+  case 0:
+    for (int i = 0; i < NUM_PRODUCER * NUM_WRITES; i++){
+      printf("dth output: %lu\n",i,fifo_rd(f));
+    }
+
+    fprintf(stderr, "Reader %d is done reading\n", getpid());
+    exit(0);
+
+  default:
+    break;
+    
+  }
+
+  for (int i = 0; i < NUM_PRODUCER + 1; i++){
+    wait(0);
+  }
+
+  return 0;
+  
+}
