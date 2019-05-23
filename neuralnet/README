@@ -1,0 +1,58 @@
+Brief description of files:
+
+neuralnet.py - Main work. Run this to get prompted for testing or training.
+
+node.py - Node class for use in neural net program
+
+parsedex.py - What I used to create my dataset. Required the files:
+
+-DexRaw
+-GoodPoke
+-BadPoke
+
+It also created:
+
+-TestPoke.txt
+-TrainPoke.txt
+
+gennet.py - program that created the initial neural net settings.
+
+Nothing very complicated, set all weights to random numbers between 0 and 1.
+
+The specified amount is set by use of the GenNet function, and then built with the RetNet function to resemble the expected training set input file.
+
+pokeinit.txt - initial neural net file created by gennet.py
+
+Renamed the file so that in case of running gennet.py, the initial neural net settings used to create the other files will not get overwritten. TestPoke.txt and TrainPoke.txt were renamed for similar reasons.
+
+poketrained - trained neural net file after feeding in TrainPoke as the training set.
+
+poketested - final results using poketrained as the neural net and TestPoke as the test set.
+
+Nodes in hidden layer: 10
+Learning rate: 0.1
+Epochs: 100
+
+Description of data:
+
+The input parameters could be split into 2 parts.
+
+The first 18 of 25 describes the type of a Pokemon. Some Pokemon have two types, in which case two of these parameters will be switched to 1. Otherwise, only one will be switched to 1, as Pokemon can only have 1 or 2 types.
+
+The remaining 7 inputs describe the relative stat distribution of each Pokemon. The first of the 7 is total base stats, which is the result of a whole number divided by 780. The remaining stats comprise of HP, Atk, Def, SpA, SpD, and Speed, all values that were whole numbers divided by 255. For those who don't care for Pokemon battling, these are just universal parameters all Pokemon possess. The numbers chosen to divide these values are numbers that are so high that no one pokemon possess any stats higher than that. The goal was to make it so that these attributes were scaled down to decimals below one that had meaning when compared relative to one another.
+
+The output is a single value that describes whether the Pokemon is useable in the X/Y generation past the division NU. The output should display a 1 if the Pokemon is viable beyond NU, and a 0 if it doesn't. In laymen's terms, this output describes whether a Pokemon is considered good or bad.
+
+The goal of running this data through a neural net was to determine if it was possible to predict competitive viability simply by looking at the typing and the relative base stats of a Pokemon.
+
+I did not expect this experiment to run very well. The fact of the matter is that while typing and base stats are very important, there are also plenty of examples where Pokemon with "poor" typing or stats are considered to be good and vice versa. This is because there are other factors involved that I could not quantify with neural net inputs like movesets, abilities, and equipable items. Regardless, the results demonstrate to me that it is possible to use typing and base stats as a rough test to determine basic viability of a Pokemon, as the neural net still approached a good 78% in both overall accuracy and the f1 rating.
+
+How the data set was created:
+
+After some searches through Google, I was able to get my hands on a somewhat dated Pokemon database (the csv file) with organized typings and base stats. I did, however, have to manually rename some Pokemon to match their Smogon connotations or simply to remove parsing problems. Thankfully, this did not number more than 50. From there, I copy-pasted the cells onto a document - DexRaw
+
+Smogon, mentioned just previously, is the site used by a community that rates Pokemon by competitive viability. I copy-pasted their forms on their website onto another two documents which becamse GoodPoke and BadPoke, respectively. I manually deleted all information besides their names. I would have preferred to use python to do that with code, but unfotunately I realized there were no consistent ways to guarantee how many lines I had to skip as some Pokemon had blank information, which screwed with the numbering.
+
+With these 3 files, I started parsing through all of them. First I parsed DexRaw to set up every pokemon in a dictionary with their name as a key and the other relevant stats as an array for the value. From there, I parsed through GoodPoke and searched for each pokemon in the dictionary using their name. Upon finding them, I appended the value 1 to signify that the distribution represented a good pokemon, then added it to the goodpoke list that I created. Similar things were done using the BadPoke document, except I appended the value 0 to signify its mediocrity and then added it to the badpoke list.
+
+Finally, I shuffled the arrays in goodpoke and badpoke, then grabbed the first 130 arrays from each to use as my training data. The remaining arrays were used as my test data.
